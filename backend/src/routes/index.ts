@@ -1,0 +1,107 @@
+import { Router } from 'express';
+import { authenticate, requireAdmin, requireClient } from '../middleware/authenticate';
+import { contactLimiter, demoLimiter, forgotPasswordLimiter, loginLimiter, registerLimiter } from '../middleware/rateLimit';
+import * as auth from '../controllers/auth.controller';
+import * as catalog from '../controllers/catalog.controller';
+import * as commerce from '../controllers/commerce.controller';
+import * as projects from '../controllers/project.controller';
+import * as content from '../controllers/content.controller';
+import * as admin from '../controllers/admin.controller';
+import { publicConfig } from '../controllers/system.controller';
+
+export const apiRouter = Router();
+
+apiRouter.get('/config/public', publicConfig);
+
+apiRouter.post('/auth/register', registerLimiter, auth.register);
+apiRouter.post('/auth/login', loginLimiter, auth.login);
+apiRouter.post('/auth/logout', auth.logout);
+apiRouter.post('/auth/refresh', auth.refresh);
+apiRouter.post('/auth/forgot-password', forgotPasswordLimiter, auth.forgotPassword);
+apiRouter.post('/auth/reset-password', auth.resetPassword);
+apiRouter.post('/auth/verify-email', auth.verifyEmail);
+apiRouter.post('/auth/resend-verification', authenticate, auth.resendVerification);
+apiRouter.get('/auth/me', authenticate, auth.me);
+apiRouter.patch('/profile', authenticate, auth.updateProfile);
+
+apiRouter.get('/services', catalog.listPublic);
+apiRouter.get('/services/:slug', catalog.getPublic);
+apiRouter.get('/categories', catalog.listCategories);
+
+apiRouter.get('/reviews', content.listReviews);
+apiRouter.post('/reviews', authenticate, requireClient, content.createReview);
+apiRouter.get('/faqs', content.listFaqs);
+apiRouter.post('/demo', demoLimiter, content.createDemo);
+apiRouter.post('/contact', contactLimiter, content.createContact);
+
+apiRouter.get('/cart', authenticate, requireClient, commerce.getCart);
+apiRouter.post('/cart/items', authenticate, requireClient, commerce.addItem);
+apiRouter.patch('/cart/items/:id', authenticate, requireClient, commerce.updateItem);
+apiRouter.delete('/cart/items/:id', authenticate, requireClient, commerce.removeItem);
+apiRouter.delete('/cart', authenticate, requireClient, commerce.clear);
+
+apiRouter.post('/orders/checkout', authenticate, requireClient, commerce.startCheckout);
+apiRouter.get('/orders', authenticate, requireClient, commerce.listOrders);
+apiRouter.get('/orders/:id', authenticate, requireClient, commerce.getOrder);
+apiRouter.get('/projects', authenticate, requireClient, projects.listMine);
+apiRouter.get('/projects/:id', authenticate, requireClient, projects.getMine);
+apiRouter.get('/payments', authenticate, requireClient, commerce.listPayments);
+apiRouter.get('/payments/:id', authenticate, requireClient, commerce.getPayment);
+apiRouter.get('/invoices', authenticate, requireClient, commerce.listInvoices);
+apiRouter.get('/invoices/:id/pdf', authenticate, requireClient, commerce.downloadInvoice);
+apiRouter.get('/invoices/:id', authenticate, requireClient, commerce.getInvoice);
+apiRouter.get('/client-services', authenticate, requireClient, commerce.listServices);
+apiRouter.get('/dashboard/summary', authenticate, requireClient, commerce.summary);
+apiRouter.get('/notifications', authenticate, commerce.listNotifications);
+apiRouter.post('/notifications/read-all', authenticate, commerce.readAllNotifications);
+apiRouter.patch('/notifications/:id/read', authenticate, commerce.readNotification);
+
+const adminRouter = Router();
+adminRouter.use(authenticate, requireAdmin);
+adminRouter.get('/analytics', admin.overview);
+adminRouter.get('/clients', admin.clients);
+adminRouter.get('/clients/:id', admin.clientDetail);
+adminRouter.patch('/clients/:id', admin.updateClient);
+adminRouter.get('/services', catalog.adminList);
+adminRouter.get('/services/:id', catalog.adminGet);
+adminRouter.post('/services', catalog.adminCreate);
+adminRouter.patch('/services/:id', catalog.adminUpdate);
+adminRouter.post('/services/:id/publish', catalog.adminPublish);
+adminRouter.post('/services/:id/unpublish', catalog.adminUnpublish);
+adminRouter.post('/services/:id/archive', catalog.adminArchive);
+adminRouter.delete('/services/:id', catalog.adminDelete);
+adminRouter.get('/categories', catalog.adminCategories);
+adminRouter.post('/categories', catalog.createCategory);
+adminRouter.patch('/categories/:id', catalog.updateCategory);
+adminRouter.delete('/categories/:id', catalog.deleteCategory);
+adminRouter.get('/projects', projects.adminList);
+adminRouter.post('/projects', projects.adminCreate);
+adminRouter.get('/projects/:id', projects.adminGet);
+adminRouter.patch('/projects/:id', projects.adminUpdate);
+adminRouter.patch('/projects/:id/milestones/:milestoneId', projects.adminMilestone);
+adminRouter.post('/projects/:id/notes', projects.adminNote);
+adminRouter.get('/orders', admin.orders);
+adminRouter.get('/orders/:id', admin.orderDetail);
+adminRouter.get('/payments', admin.payments);
+adminRouter.get('/payments/:id', admin.paymentDetail);
+adminRouter.get('/invoices', admin.invoices);
+adminRouter.get('/invoices/:id', admin.invoiceDetail);
+adminRouter.get('/invoices/:id/pdf', admin.invoicePdf);
+adminRouter.patch('/invoices/:id', admin.updateInvoice);
+adminRouter.get('/refunds', admin.listRefunds);
+adminRouter.post('/refunds', admin.createRefund);
+adminRouter.get('/reviews', content.adminReviews);
+adminRouter.patch('/reviews/:id', content.publishReview);
+adminRouter.get('/faqs', content.adminFaqs);
+adminRouter.post('/faqs', content.createFaq);
+adminRouter.patch('/faqs/:id', content.updateFaq);
+adminRouter.delete('/faqs/:id', content.deleteFaq);
+adminRouter.get('/demo-requests', content.listDemos);
+adminRouter.patch('/demo-requests/:id', content.updateDemo);
+adminRouter.get('/contact-requests', content.listContacts);
+adminRouter.patch('/contact-requests/:id', content.updateContact);
+adminRouter.get('/settings', admin.getSettings);
+adminRouter.patch('/settings', admin.updateSettings);
+adminRouter.get('/audit-logs', admin.auditLogs);
+
+apiRouter.use('/admin', adminRouter);

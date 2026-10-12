@@ -1,0 +1,1 @@
+CREATE DATABASE subscription_portal_test;

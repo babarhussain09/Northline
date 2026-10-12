@@ -1,0 +1,56 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      target: production
+    volumes: []
+    command: sh -c "npx prisma migrate deploy && node dist/server.js"
+    environment:
+      NODE_ENV: production
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    volumes: []
+    environment: {}
+    ports: []
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backup:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGDATABASE: subscription_portal
+      PGPASSWORD: postgres
+      BACKUP_DIR: /backups
+    volumes:
+      - ./docker/backup:/scripts:ro
+      - backup_data:/backups
+    entrypoint: ["/bin/sh", "/scripts/schedule.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  backup_data:
